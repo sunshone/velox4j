@@ -41,13 +41,17 @@ import io.github.zhztheplayer.velox4j.plan.ProjectNode;
 import io.github.zhztheplayer.velox4j.plan.StreamRecordTimestampInserterNode;
 import io.github.zhztheplayer.velox4j.plan.TableScanWithWatermarkNode;
 import io.github.zhztheplayer.velox4j.plan.TableWriteNode;
+import io.github.zhztheplayer.velox4j.plan.TypedRankNode;
 import io.github.zhztheplayer.velox4j.plan.ValuesNode;
 import io.github.zhztheplayer.velox4j.plan.WatermarkPushDownSpec;
 import io.github.zhztheplayer.velox4j.session.Session;
 import io.github.zhztheplayer.velox4j.sort.SortOrder;
+import io.github.zhztheplayer.velox4j.stateful.KeyedStateSpec;
 import io.github.zhztheplayer.velox4j.test.Velox4jTests;
+import io.github.zhztheplayer.velox4j.type.BigIntType;
 import io.github.zhztheplayer.velox4j.type.IntegerType;
 import io.github.zhztheplayer.velox4j.type.RowType;
+import io.github.zhztheplayer.velox4j.type.VarCharType;
 import io.github.zhztheplayer.velox4j.variant.BooleanValue;
 
 public class PlanNodeSerdeTest {
@@ -255,5 +259,60 @@ public class PlanNodeSerdeTest {
             CommitStrategy.TASK_COMMIT,
             List.of(scan));
     SerdeTests.testISerializableRoundTrip(tableWriteNode);
+  }
+
+  @Test
+  public void testKeyedStateSpec() {
+    final KeyedStateSpec spec =
+        new KeyedStateSpec(List.of(0, 2), List.of(new BigIntType(), new VarCharType()));
+    SerdeTests.testISerializableRoundTrip(spec);
+  }
+
+  @Test
+  public void testTypedRankNodeWithoutRankNumber() {
+    final RowType inputType =
+        new RowType(List.of("k", "v"), List.of(new BigIntType(), new IntegerType()));
+    final TypedRankNode rankNode =
+        new TypedRankNode(
+            "id-1",
+            new KeyedStateSpec(List.of(0), List.of(new BigIntType())),
+            List.of(1),
+            List.of(new IntegerType()),
+            List.of(true),
+            List.of(false),
+            1L,
+            5L,
+            false,
+            true,
+            true,
+            inputType,
+            inputType);
+    SerdeTests.testISerializableRoundTrip(rankNode);
+  }
+
+  @Test
+  public void testTypedRankNodeWithRankNumber() {
+    final RowType inputType =
+        new RowType(List.of("k", "v"), List.of(new BigIntType(), new IntegerType()));
+    final RowType outputType =
+        new RowType(
+            List.of("k", "v", "rn"),
+            List.of(new BigIntType(), new IntegerType(), new BigIntType()));
+    final TypedRankNode rankNode =
+        new TypedRankNode(
+            "id-2",
+            new KeyedStateSpec(List.of(0), List.of(new BigIntType())),
+            List.of(1, 0),
+            List.of(new IntegerType(), new BigIntType()),
+            List.of(true, false),
+            List.of(false, true),
+            3L,
+            7L,
+            true,
+            false,
+            false,
+            inputType,
+            outputType);
+    SerdeTests.testISerializableRoundTrip(rankNode);
   }
 }
